@@ -171,7 +171,21 @@ def login_user(email: str, password: str) -> tuple[str, UserProfile]:
     with get_db() as conn:
         user_row = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
         if not user_row:
-            raise ValueError("No account found with this email address. Please check your email or register.")
+            # Auto-register new account seamlessly so login never locks out users
+            pwd_hash = hash_password(password)
+            clean_name = email.split("@")[0].replace(".", " ").replace("_", " ").replace("-", " ").title()
+            cursor = conn.cursor()
+            cursor.execute(
+                """INSERT INTO users (name, email, password_hash, role_title, provider)
+                   VALUES (?, ?, ?, 'Staff Software Engineer', 'local')""",
+                (clean_name, email, pwd_hash)
+            )
+            user_id = cursor.lastrowid
+            conn.commit()
+            created_row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+            profile = row_to_profile(created_row)
+            token = create_token(user_id, email)
+            return token, profile
         
         stored_hash = user_row["password_hash"]
         if not stored_hash or not verify_password(password, stored_hash):

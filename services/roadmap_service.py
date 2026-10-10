@@ -462,10 +462,23 @@ def get_all_pathways() -> list[RoadmapPathway]:
     return pathways
 
 
+PATHWAY_ALIASES = {
+    "distributed-systems": "distributed-systems",
+    "systems": "distributed-systems",
+    "ai-engineering": "ai-engineering",
+    "ai-ml-platform": "ai-engineering",
+    "ai": "ai-engineering",
+    "cloud-devops": "cloud-devops",
+    "cloud-devops-sre": "cloud-devops",
+    "devops": "cloud-devops",
+}
+
+
 def get_pathway_by_id(pathway_id: str, user_id: Optional[int] = None) -> Optional[RoadmapPathway]:
+    canonical_id = PATHWAY_ALIASES.get(pathway_id, pathway_id)
     matched = None
     for p in PATHWAYS_DATA:
-        if p["id"] == pathway_id:
+        if p["id"] == canonical_id:
             matched = p
             break
     if not matched:
@@ -527,10 +540,11 @@ def get_pathway_by_id(pathway_id: str, user_id: Optional[int] = None) -> Optiona
 
 
 def toggle_resource_progress(user_id: int, pathway_id: str, resource_id: str, completed: bool):
+    canonical_id = PATHWAY_ALIASES.get(pathway_id, pathway_id)
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     row = cursor.execute("SELECT completed_resources FROM user_roadmaps WHERE user_id = ? AND pathway_id = ?",
-                         (user_id, pathway_id)).fetchone()
+                         (user_id, canonical_id)).fetchone()
     
     current = set()
     if row and row[0]:
@@ -550,6 +564,6 @@ def toggle_resource_progress(user_id: int, pathway_id: str, resource_id: str, co
         ON CONFLICT(user_id, pathway_id) DO UPDATE SET
             completed_resources = excluded.completed_resources,
             updated_at = CURRENT_TIMESTAMP
-    """, (user_id, pathway_id, json.dumps(list(current))))
+    """, (user_id, canonical_id, json.dumps(list(current))))
     conn.commit()
     conn.close()

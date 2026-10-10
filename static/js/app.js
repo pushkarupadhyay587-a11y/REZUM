@@ -250,6 +250,16 @@ const AuthManager = {
   getAuthToken() {
     return localStorage.getItem('rezum_token') || '';
   },
+  getToken() {
+    return this.getAuthToken();
+  },
+  getAuthHeader() {
+    const t = this.getAuthToken();
+    return t ? { 'Authorization': `Bearer ${t}` } : {};
+  },
+  isLoggedIn() {
+    return !!this.getAuthToken() && !!this.getCurrentUser();
+  },
   getCurrentUser() {
     try {
       const u = localStorage.getItem('rezum_user');
@@ -258,9 +268,21 @@ const AuthManager = {
       return null;
     }
   },
-  setSession(token, user) {
-    localStorage.setItem('rezum_token', token);
-    localStorage.setItem('rezum_user', JSON.stringify(user));
+  setSession(arg1, arg2) {
+    let token = '';
+    let user = null;
+    if (typeof arg1 === 'string' && typeof arg2 === 'object') {
+      token = arg1;
+      user = arg2;
+    } else if (typeof arg1 === 'object' && typeof arg2 === 'string') {
+      token = arg2;
+      user = arg1;
+    } else if (typeof arg1 === 'object' && !arg2) {
+      user = arg1.user || arg1;
+      token = arg1.token || this.getAuthToken();
+    }
+    if (token) localStorage.setItem('rezum_token', token);
+    if (user) localStorage.setItem('rezum_user', JSON.stringify(user));
     this.updateHeaderUserUI();
   },
   clearSession() {
@@ -1601,11 +1623,11 @@ function renderResume() {
   const user = AuthManager.getCurrentUser();
   const savedDraft = JSON.parse(localStorage.getItem('rezum_resume_draft') || '{}');
 
-  const defaultName = savedDraft.name || (user ? user.name : 'Alex Morgan');
-  const defaultEmail = savedDraft.email || (user ? user.email : 'alex.morgan@domain.com');
-  const defaultPhone = savedDraft.phone || '+1 (415) 555-0192';
-  const defaultLoc = savedDraft.location || (user ? user.location : 'San Francisco, CA // Hybrid');
-  const defaultTitle = savedDraft.expTitle || (user ? user.role_title : 'Staff Distributed Systems Architect');
+  const defaultName = (user && user.name) ? user.name : (savedDraft.name || '');
+  const defaultEmail = (user && user.email) ? user.email : (savedDraft.email || '');
+  const defaultPhone = (user && user.phone) ? user.phone : (savedDraft.phone || '');
+  const defaultLoc = (user && user.location) ? user.location : (savedDraft.location || '');
+  const defaultTitle = (user && user.role_title) ? user.role_title : (savedDraft.expTitle || 'Staff Software Architect');
   const defaultCompany = savedDraft.expCompany || 'Stripe • Platform Core (2022 – Present)';
   const defaultSummary = savedDraft.summary || 'Results-driven Staff Engineer with 10+ years specializing in distributed transactions, low-latency streaming pipelines, and fault-tolerant cloud platforms. Proven track record scaling systems past 100K ops/sec with 99.999% SLA.';
   const defaultBullets = savedDraft.expBullets || '• Architected low-latency Kafka streaming engine processing 2.4B daily events, reducing p99 latency from 450ms to 42ms\n• Spearheaded zero-downtime migration of multi-tenant Kubernetes clusters across 4 AWS cloud regions\n• Designed distributed consensus caching layer handling $1.2B in annualized transactional volume';
@@ -2029,7 +2051,8 @@ function initResume() {
 //  RESUME PDF EXPORT — Generates an Authentic Print-Ready Resume Document
 // ================================================================
 function exportResumePDF() {
-  const pvName = document.getElementById('pv-name')?.textContent || 'ALEX MORGAN';
+  const curUser = AuthManager.getCurrentUser();
+  const pvName = document.getElementById('pv-name')?.textContent || (curUser ? curUser.name.toUpperCase() : 'CANDIDATE DOSSIER');
   const pvContact = document.getElementById('pv-contact')?.textContent || '';
   const pvSummary = document.getElementById('pv-summary')?.textContent || '';
   const pvExpTitle = document.getElementById('pv-exp-title')?.textContent || '';
