@@ -1,103 +1,249 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html class="light" lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Rezum | Resume ranking</title>
-  <style>
-    :root { --ink: #1f2933; --muted: #697586; --line: #d8dee6; --accent: #e06b38; --accent-dark: #b95125; --paper: #fbfaf7; --wash: #eef4f2; }
-    * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100vh; color: var(--ink); background: radial-gradient(circle at 90% 0%, #f8dcc4 0, transparent 34%), var(--paper); font: 16px/1.5 Georgia, serif; }
-    main { width: min(960px, calc(100% - 32px)); margin: 0 auto; padding: 58px 0 80px; }
-    header { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 38px; }
-    .eyebrow { color: var(--accent-dark); font: 700 12px/1.2 Arial, sans-serif; letter-spacing: 2px; text-transform: uppercase; }
-    h1 { margin: 8px 0 0; font-size: clamp(38px, 7vw, 72px); line-height: .98; font-weight: 500; letter-spacing: -2px; }
-    .intro { max-width: 250px; margin: 0; color: var(--muted); font: 15px/1.5 Arial, sans-serif; }
-    .panel { padding: clamp(20px, 4vw, 40px); border: 1px solid var(--line); background: rgba(255,255,255,.82); box-shadow: 0 18px 55px rgba(57, 72, 83, .08); }
-    label { display: block; margin-bottom: 9px; font: 700 13px Arial, sans-serif; }
-    textarea { display: block; width: 100%; min-height: 112px; padding: 14px; resize: vertical; border: 1px solid var(--line); border-radius: 3px; color: var(--ink); background: #fff; font: 16px/1.5 Arial, sans-serif; }
-    textarea:focus { outline: 2px solid #f0b08c; border-color: var(--accent); }
-    .dropzone { margin-top: 26px; padding: 30px 20px; border: 1.5px dashed #aab5c1; border-radius: 4px; background: var(--wash); text-align: center; transition: .2s ease; }
-    .dropzone.active { border-color: var(--accent); background: #fff0e8; transform: translateY(-2px); }
-    .dropzone strong { display: block; margin-bottom: 5px; font-size: 21px; font-weight: 500; }
-    .dropzone p { margin: 0 0 18px; color: var(--muted); font: 14px Arial, sans-serif; }
-    input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; }
-    .pick, button { display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 3px; cursor: pointer; font: 700 14px Arial, sans-serif; }
-    .pick { padding: 11px 17px; color: #fff; background: var(--ink); }
-    .pick:hover, button:hover { background: #364452; }
-    .file-list { display: grid; gap: 7px; margin: 18px 0 0; padding: 0; list-style: none; font: 14px Arial, sans-serif; }
-    .file-list li { display: flex; justify-content: space-between; gap: 14px; padding: 9px 11px; background: #fff; border: 1px solid #e4e8ec; }
-    .file-list span:last-child { color: var(--muted); white-space: nowrap; }
-    button { width: 100%; margin-top: 26px; padding: 14px; color: #fff; background: var(--accent); }
-    button:disabled { cursor: wait; opacity: .55; }
-    .message { min-height: 22px; margin: 14px 0 0; color: var(--accent-dark); font: 14px Arial, sans-serif; }
-    #results { display: grid; gap: 12px; margin-top: 32px; }
-    .result { padding: 20px; border-left: 4px solid var(--accent); background: #fff; box-shadow: 0 8px 24px rgba(57,72,83,.06); }
-    .result-top { display: flex; justify-content: space-between; gap: 15px; font: 700 15px Arial, sans-serif; }
-    .score { color: var(--accent-dark); white-space: nowrap; }
-    .result p, .result ul { margin: 10px 0 0; font: 14px/1.5 Arial, sans-serif; }
-    .result ul { padding-left: 18px; color: var(--muted); }
-    @media (max-width: 620px) { main { padding-top: 32px; } header { display: block; } .intro { margin-top: 18px; } }
-  </style>
-</head>
-<body>
-  <main>
-    <header>
-      <div><div class="eyebrow">Rezum / candidate intelligence</div><h1>Find the right<br>resume faster.</h1></div>
-      <p class="intro">Give Gemini a role and a shortlist. It will rank each resume with evidence you can inspect.</p>
-    </header>
-    <section class="panel">
-      <form id="rank-form">
-        <label for="role">Role or job description</label>
-        <textarea id="role" name="role" placeholder="e.g. Senior backend engineer with Python, FastAPI, and PostgreSQL experience" required></textarea>
-        <div id="dropzone" class="dropzone">
-          <strong>Drop resumes here</strong>
-          <p>PDF, DOCX, TXT, MD, or CSV. The selected resume will be saved before analysis.</p>
-          <label class="pick" for="files">Choose files</label>
-          <input id="files" name="files" type="file" accept=".pdf,.docx,.txt,.md,.csv" multiple>
-          <ul id="file-list" class="file-list"></ul>
-        </div>
-        <button id="submit" type="submit">Rank resumes</button>
-        <p id="message" class="message" role="status"></p>
-      </form>
-    </section>
-    <section id="results" aria-live="polite"></section>
-  </main>
-  <script>
-    const form = document.querySelector('#rank-form');
-    const dropzone = document.querySelector('#dropzone');
-    const fileInput = document.querySelector('#files');
-    const fileList = document.querySelector('#file-list');
-    const message = document.querySelector('#message');
-    const results = document.querySelector('#results');
-    let selectedFiles = [];
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+  <title>REZUM — Career Intelligence System</title>
+  <meta name="description" content="Rezum is an AI-powered career intelligence platform. Score your resume, discover matching jobs, and close skill gaps with personalized roadmaps." />
 
-    function addFiles(files) {
-      selectedFiles = files.slice(-1);
-      fileList.innerHTML = selectedFiles.map(file => `<li><span>${escapeHtml(file.name)}</span><span>${Math.ceil(file.size / 1024)} KB</span></li>`).join('');
-    }
-    function escapeHtml(value) { return value.replace(/[&<>'"]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character])); }
-    fileInput.addEventListener('change', event => addFiles([...event.target.files]));
-    ['dragenter', 'dragover'].forEach(type => dropzone.addEventListener(type, event => { event.preventDefault(); dropzone.classList.add('active'); }));
-    ['dragleave', 'drop'].forEach(type => dropzone.addEventListener(type, event => { event.preventDefault(); dropzone.classList.remove('active'); }));
-    dropzone.addEventListener('drop', event => addFiles([...event.dataTransfer.files]));
-    form.addEventListener('submit', async event => {
-      event.preventDefault();
-      if (!selectedFiles.length) { message.textContent = 'Choose at least one resume.'; return; }
-      const data = new FormData();
-      data.append('role', document.querySelector('#role').value);
-      data.append('file', selectedFiles[0]);
-      document.querySelector('#submit').disabled = true;
-      message.textContent = 'Analyzing resumes...'; results.innerHTML = '';
-      try {
-        const response = await fetch('/upload', { method: 'POST', body: data });
-        const payload = await response.json();
-        if (!response.ok) throw new Error(payload.detail || 'Ranking failed.');
-        message.textContent = `${payload.ranked_resumes.length} resume(s) ranked.`;
-        results.innerHTML = payload.ranked_resumes.map(item => `<article class="result"><div class="result-top"><span>#${item.rank} ${escapeHtml(item.filename)}</span><span class="score">${item.score}/100</span></div><p>${escapeHtml(item.summary)}</p><strong>Strengths</strong><ul>${item.strengths.map(strength => `<li>${escapeHtml(strength)}</li>`).join('')}</ul><strong>Skills to consider adding</strong><ul>${item.suggested_skills.map(skill => `<li>${escapeHtml(skill)}</li>`).join('')}</ul><strong>Resume improvements</strong><ul>${item.improvement_suggestions.map(suggestion => `<li>${escapeHtml(suggestion)}</li>`).join('')}</ul></article>`).join('');
-      } catch (error) { message.textContent = error.message; }
-      finally { document.querySelector('#submit').disabled = false; }
-    });
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com" rel="preconnect" />
+  <link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Syne:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "on-surface": "#1a1c1d",
+            "secondary-fixed-dim": "#c4c6cc",
+            "on-secondary-fixed": "#191c20",
+            "error": "#ba1a1a",
+            "tertiary-fixed": "#e0e2e8",
+            "primary-fixed-dim": "#c8c6c5",
+            "surface-container": "#eeeeef",
+            "on-secondary": "#ffffff",
+            "on-error": "#ffffff",
+            "on-primary-container": "#858383",
+            "on-primary-fixed": "#1c1b1b",
+            "surface-container-highest": "#e2e2e3",
+            "secondary-container": "#e0e2e8",
+            "on-primary-fixed-variant": "#474646",
+            "outline": "#747878",
+            "on-surface-variant": "#444748",
+            "inverse-surface": "#2f3132",
+            "on-secondary-container": "#616469",
+            "on-tertiary": "#ffffff",
+            "on-background": "#1a1c1d",
+            "tertiary": "#000000",
+            "secondary-fixed": "#e0e2e8",
+            "tertiary-container": "#181c20",
+            "surface": "#f9f9fa",
+            "surface-dim": "#dadadb",
+            "secondary": "#5b5f63",
+            "tertiary-fixed-dim": "#c4c6cc",
+            "outline-variant": "#c4c7c7",
+            "surface-container-low": "#f3f3f4",
+            "on-tertiary-container": "#818489",
+            "error-container": "#ffdad6",
+            "primary-container": "#1c1b1b",
+            "surface-bright": "#f9f9fa",
+            "on-tertiary-fixed-variant": "#44474b",
+            "on-primary": "#ffffff",
+            "primary": "#000000",
+            "background": "#f9f9fa",
+            "surface-tint": "#5f5e5e",
+            "surface-container-high": "#e8e8e9",
+            "on-secondary-fixed-variant": "#44474c",
+            "inverse-on-surface": "#f0f1f2",
+            "inverse-primary": "#c8c6c5",
+            "on-tertiary-fixed": "#181c20",
+            "surface-container-lowest": "#ffffff",
+            "surface-variant": "#e2e2e3",
+            "primary-fixed": "#e5e2e1",
+            "on-error-container": "#93000a",
+            "primary-hover": "#333538"
+          },
+          borderRadius: {
+            DEFAULT: "1rem",
+            lg: "2rem",
+            xl: "3rem",
+            full: "9999px"
+          },
+          spacing: {
+            "space-xl": "3rem",
+            "space-md": "1rem",
+            margin: "3rem",
+            "space-xs": "0.25rem",
+            "space-lg": "1.75rem",
+            "margin-sm": "1.25rem",
+            "gutter-sm": "1rem",
+            gutter: "1.5rem",
+            "space-sm": "0.5rem"
+          },
+          fontFamily: {
+            "body-md": ["Hanken Grotesk", "system-ui", "sans-serif"],
+            "body-lg": ["Hanken Grotesk", "system-ui", "sans-serif"],
+            "headline-xl-mobile": ["Syne", "Helvetica Neue", "Arial", "sans-serif"],
+            "headline-2xl-mobile": ["Syne", "Helvetica Neue", "Arial", "sans-serif"],
+            "headline-xl": ["Syne", "Helvetica Neue", "Arial", "sans-serif"],
+            "headline-lg": ["Syne", "Helvetica Neue", "Arial", "sans-serif"],
+            "label-sm": ["Hanken Grotesk", "system-ui", "sans-serif"],
+            "body-sm": ["Hanken Grotesk", "system-ui", "sans-serif"],
+            "label-lg": ["Hanken Grotesk", "system-ui", "sans-serif"],
+            "headline-md": ["Syne", "Helvetica Neue", "Arial", "sans-serif"],
+            "label-md": ["Hanken Grotesk", "system-ui", "sans-serif"],
+            "headline-sm": ["Syne", "Helvetica Neue", "Arial", "sans-serif"],
+            "headline-2xl": ["Syne", "Helvetica Neue", "Arial", "sans-serif"]
+          },
+          fontSize: {
+            "body-md": ["1rem", { lineHeight: "1.6", letterSpacing: "-0.005em", fontWeight: "400" }],
+            "body-lg": ["1.125rem", { lineHeight: "1.65", letterSpacing: "-0.01em", fontWeight: "400" }],
+            "headline-xl-mobile": ["2.125rem", { lineHeight: "1.15", letterSpacing: "-0.02em", fontWeight: "700" }],
+            "headline-2xl-mobile": ["2.75rem", { lineHeight: "1.1", letterSpacing: "-0.025em", fontWeight: "800" }],
+            "headline-xl": ["3.25rem", { lineHeight: "1.1", letterSpacing: "-0.03em", fontWeight: "700" }],
+            "headline-lg": ["2.25rem", { lineHeight: "1.2", letterSpacing: "-0.02em", fontWeight: "700" }],
+            "label-sm": ["0.625rem", { lineHeight: "1.2", letterSpacing: "0.2em", fontWeight: "600" }],
+            "body-sm": ["0.875rem", { lineHeight: "1.5", letterSpacing: "0", fontWeight: "400" }],
+            "label-lg": ["0.8125rem", { lineHeight: "1.2", letterSpacing: "0.14em", fontWeight: "600" }],
+            "headline-md": ["1.5rem", { lineHeight: "1.3", letterSpacing: "-0.015em", fontWeight: "600" }],
+            "label-md": ["0.6875rem", { lineHeight: "1.2", letterSpacing: "0.18em", fontWeight: "600" }],
+            "headline-sm": ["1.25rem", { lineHeight: "1.35", letterSpacing: "-0.01em", fontWeight: "600" }],
+            "headline-2xl": ["4.5rem", { lineHeight: "1.05", letterSpacing: "-0.035em", fontWeight: "800" }]
+          }
+        }
+      }
+    };
   </script>
+
+  <!-- Google Identity Services (Google Sign-In) -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <!-- Custom CSS -->
+  <link href="/static/css/app.css" rel="stylesheet" />
+</head>
+
+<body class="bg-surface text-on-surface font-body-md antialiased min-h-screen flex flex-col selection:bg-primary selection:text-on-primary">
+
+  <!-- ============ FIXED HEADER ============ -->
+  <header id="site-header" class="fixed top-0 inset-x-0 z-50 bg-surface/90 backdrop-blur-md border-b border-outline-variant/30 transition-transform duration-300">
+    <div class="h-20 w-full px-margin-sm lg:px-margin flex items-center justify-between max-w-[1720px] mx-auto">
+      <!-- Left: Logo -->
+      <div class="flex items-center gap-space-lg">
+        <a class="flex items-center gap-space-sm group focus:outline-none" href="#/" id="logo-link">
+          <div class="w-8 h-8 bg-primary rounded-sm flex items-center justify-center">
+            <span class="text-on-primary font-headline-sm text-[14px] font-bold">R</span>
+          </div>
+          <span class="font-headline-sm text-headline-sm uppercase tracking-tight text-primary font-bold">REZUM</span>
+        </a>
+        <span class="hidden md:block w-px h-6 bg-outline-variant/40"></span>
+        <span class="hidden lg:inline-block font-label-sm text-label-sm uppercase tracking-widest text-secondary">CAREER INTELLIGENCE SYSTEM</span>
+      </div>
+
+      <!-- Center: Nav (desktop) -->
+      <nav id="desktop-nav" class="hidden xl:flex items-center gap-space-lg h-full relative">
+        <a class="nav-link font-label-md text-label-md uppercase text-on-surface-variant hover:text-on-surface transition-colors py-2" href="#/jobs">JOBS</a>
+        <a class="nav-link font-label-md text-label-md uppercase text-on-surface-variant hover:text-on-surface transition-colors py-2" href="#/analyzer">ANALYZER</a>
+        <a class="nav-link font-label-md text-label-md uppercase text-on-surface-variant hover:text-on-surface transition-colors py-2" href="#/resume">RESUME BUILDER</a>
+        <a class="nav-link font-label-md text-label-md uppercase text-on-surface-variant hover:text-on-surface transition-colors py-2" href="#/roadmaps">ROADMAPS</a>
+        <a class="nav-link font-label-md text-label-md uppercase text-on-surface-variant hover:text-on-surface transition-colors py-2" href="#/tracker">TRACKER</a>
+      </nav>
+
+      <!-- Right: Actions -->
+      <div class="flex items-center gap-space-md">
+        <button aria-label="Search" class="w-10 h-10 rounded-full border border-outline-variant/50 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:border-primary transition-all" type="button" id="search-btn">
+          <span class="material-symbols-outlined text-[18px]">search</span>
+        </button>
+        <a class="hidden sm:inline-flex items-center justify-center px-space-lg py-2.5 rounded-full border border-primary text-primary hover:bg-primary hover:text-on-primary font-label-md text-label-md uppercase transition-all duration-200" href="#/auth" id="header-auth-btn">SIGN IN</a>
+        <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center cursor-pointer overflow-hidden border border-outline-variant/40" id="avatar-btn">
+          <span class="material-symbols-outlined text-on-primary text-[18px]" id="avatar-icon">person</span>
+        </div>
+        <!-- Mobile hamburger -->
+        <button class="xl:hidden w-10 h-10 rounded-full border border-outline-variant/50 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:border-primary transition-all" id="mobile-menu-btn" type="button" aria-label="Open navigation">
+          <span class="material-symbols-outlined text-[20px]">menu</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ MAIN CONTENT ============ -->
+  <main id="app-content" class="w-full pt-20 flex-1 bg-surface">
+    <!-- Pages are rendered here by the JS router -->
+  </main>
+
+  <!-- ============ FOOTER ============ -->
+  <footer id="site-footer" class="w-full border-t border-outline-variant/30 bg-surface-container-low">
+    <div class="w-full max-w-[1720px] mx-auto px-margin-sm lg:px-margin py-margin">
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-gutter pb-space-xl border-b border-outline-variant/20">
+        <!-- Brand -->
+        <div class="md:col-span-4 flex flex-col justify-between">
+          <div class="space-y-space-sm">
+            <div class="flex items-center gap-space-sm">
+              <div class="w-6 h-6 bg-primary rounded-sm flex items-center justify-center">
+                <span class="text-on-primary text-[10px] font-bold">R</span>
+              </div>
+              <span class="font-headline-sm text-headline-sm uppercase tracking-tight text-primary font-bold">REZUM</span>
+            </div>
+            <p class="font-body-sm text-body-sm text-on-surface-variant max-w-sm">
+              AI-powered career intelligence platform engineered for modern talent curation, strategic trajectories, and structured dossier analysis.
+            </p>
+          </div>
+          <div class="pt-space-md">
+            <span class="font-label-sm text-label-sm uppercase tracking-widest text-secondary">ISSUE 04 // 2025 EDITION</span>
+          </div>
+        </div>
+
+        <!-- Exploration links -->
+        <div class="md:col-span-2 space-y-space-sm">
+          <p class="font-label-sm text-label-sm uppercase tracking-widest text-primary">EXPLORATION</p>
+          <ul class="space-y-space-xs">
+            <li><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" href="#/jobs">Position Index</a></li>
+            <li><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" href="#/analyzer">Dossier Analyzer</a></li>
+            <li><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" href="#/resume">Curriculum Vitae</a></li>
+            <li><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" href="#/roadmaps">Skill Vectors</a></li>
+          </ul>
+        </div>
+
+        <!-- Platform links -->
+        <div class="md:col-span-2 space-y-space-sm">
+          <p class="font-label-sm text-label-sm uppercase tracking-widest text-primary">PLATFORM</p>
+          <ul class="space-y-space-xs">
+            <li><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" href="#/roadmaps">Methodology</a></li>
+            <li><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" href="#/tracker">Application Tracker</a></li>
+            <li><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" href="#/settings">Settings</a></li>
+            <li><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" href="#/">API Documentation</a></li>
+          </ul>
+        </div>
+
+        <!-- Newsletter -->
+        <div class="md:col-span-4 space-y-space-sm">
+          <p class="font-label-sm text-label-sm uppercase tracking-widest text-primary">DISPATCH TRANSMISSION</p>
+          <p class="font-body-sm text-body-sm text-on-surface-variant">Receive curated labor market metrics and career blueprints bi-weekly.</p>
+          <div class="flex items-center border border-outline-variant/60 rounded-full p-1 bg-surface-container-lowest">
+            <input id="newsletter-email" class="w-full px-space-md py-1.5 bg-transparent font-label-sm text-label-sm text-on-surface placeholder:text-secondary focus:outline-none uppercase" placeholder="YOUR@EMAIL.COM" type="email" />
+            <button id="newsletter-btn" class="px-space-md py-1.5 bg-primary text-on-primary rounded-full font-label-sm text-label-sm uppercase hover:bg-primary-hover transition-colors whitespace-nowrap" type="button">SUBSCRIBE</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom bar -->
+      <div class="pt-space-md flex flex-col md:flex-row items-center justify-between gap-space-sm">
+        <div class="font-label-sm text-label-sm uppercase text-secondary">© 2025 REZUM INC. ALL RIGHTS RESERVED.</div>
+        <div class="flex items-center gap-space-lg">
+          <a class="font-label-sm text-label-sm uppercase text-secondary hover:text-primary transition-colors" href="#">TERMS OF SERVICE</a>
+          <a class="font-label-sm text-label-sm uppercase text-secondary hover:text-primary transition-colors" href="#">PRIVACY DIRECTIVE</a>
+          <a class="font-label-sm text-label-sm uppercase text-secondary hover:text-primary transition-colors" href="#">SECURITY AUDIT</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ============ APP JS ============ -->
+  <script src="/static/js/app.js"></script>
 </body>
 </html>
