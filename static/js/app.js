@@ -245,7 +245,24 @@ function openCommandPalette() {
   setTimeout(() => input.focus(), 60);
 }
 
-// ── AUTHENTICATION & USER SESSION MANAGER ─────────────────────────
+// ── APP CONFIG & AUTH SESSION ─────────────────────────────────────
+const APP_CONFIG = {
+  googleClientId: '',
+  googleEnabled: false
+};
+
+async function loadAppConfig() {
+  try {
+    const res = await fetch('/api/config');
+    if (!res.ok) return;
+    const data = await res.json();
+    APP_CONFIG.googleClientId = data.google_client_id || '';
+    APP_CONFIG.googleEnabled = !!(data.google_enabled || data.google_client_id);
+  } catch (error) {
+    console.warn('App config unavailable; using local auth fallback.', error);
+  }
+}
+
 const AuthManager = {
   getAuthToken() {
     return localStorage.getItem('rezum_token') || '';
@@ -1132,11 +1149,13 @@ function initAuth() {
   const googleBtn = document.getElementById('google-auth-btn');
   const googleSlot = document.getElementById('google-gsi-slot');
 
-  const initGoogleGSI = () => {
-    if (window.google?.accounts?.id) {
+  const initGoogleGSI = async () => {
+    await loadAppConfig();
+
+    if (APP_CONFIG.googleEnabled && window.google?.accounts?.id) {
       try {
         window.google.accounts.id.initialize({
-          client_id: '987654321098-rezum-client-id.apps.googleusercontent.com', // standard client slot
+          client_id: APP_CONFIG.googleClientId,
           callback: (response) => {
             if (response.credential) {
               handleGoogleAuth({ credential: response.credential });
@@ -1152,55 +1171,110 @@ function initAuth() {
             shape: 'pill',
             width: 380
           });
-          // If official Google button rendered, hide duplicate text button
           if (googleSlot.children.length > 0 && googleBtn) {
             googleBtn.style.display = 'none';
           }
         }
+        return;
       } catch (e) {
-        // Fallback to custom button
+        console.warn('Google Identity provider failed to initialize.', e);
       }
+    }
+
+    if (googleSlot) {
+      googleSlot.innerHTML = '<div class="w-full rounded-full border border-dashed border-outline-variant/60 bg-surface-container-low px-4 py-3 text-center text-secondary font-label-sm text-label-sm uppercase">Google OAuth is not configured in this environment</div>';
+    }
+    if (googleBtn) {
+      googleBtn.style.display = 'flex';
     }
   };
 
   if (window.google?.accounts?.id) {
     initGoogleGSI();
   } else {
-    // Retry once GSI loads
     window.addEventListener('load', initGoogleGSI, { once: true });
   }
 
-  // Interactive Google Sign-In Fallback Button
   if (googleBtn) {
     googleBtn.addEventListener('click', () => {
-      // If GSI prompt can be shown, prompt it
-      if (window.google?.accounts?.id) {
-        window.google.accounts.id.prompt((notification) => {
-          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            promptGoogleAccountDialog();
-          }
-        });
-      } else {
-        promptGoogleAccountDialog();
-      }
+      openGoogleAuthModal();
     });
   }
 
-  // Google Account Select Dialog (Instant Seamless Federated Google Experience)
-  function promptGoogleAccountDialog() {
-    const emailPrompt = prompt('Enter your Google Account email to continue with Google authentication:');
-    if (!emailPrompt || !emailPrompt.includes('@')) {
-      if (emailPrompt !== null) showError('Please provide a valid Google email address.');
-      return;
-    }
-    const cleanEmail = emailPrompt.trim().toLowerCase();
-    const cleanName = cleanEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-    
-    handleGoogleAuth({
-      email: cleanEmail,
-      name: cleanName,
-      sub: 'g_' + Math.random().toString(36).substring(2, 10),
-      picture: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(cleanName)}`
+  function openGoogleAuthModal() {
+    const existing = document.getElementById('google-auth-modal');
+    if (existing) existing.remove();
+
+    const isLocalFallback = !APP_CONFIG.googleEnabled;
+    const modal = document.createElement('div');
+    modal.id = 'google-auth-modal';
+    modal.className = 'fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in';
+    modal.innerHTML = `
+      <div class="w-full max-w-md bg-white text-gray-900 rounded-2xl p-6 sm:p-8 shadow-2xl border border-gray-200 animate-scale-in">
+        <div class="flex items-center justify-between mb-5">
+          <div class="flex items-center gap-2.5">
+            <svg class="w-6 h-6" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            <span class="font-bold text-lg text-gray-800">${isLocalFallback ? 'Google Sign-In Demo' : 'Google Sign-In'}</span>
+          </div>
+          <button type="button" id="close-google-modal" class="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+            <span class="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+
+        <h3 class="text-xl font-bold text-gray-900 mb-1">Choose an Account</h3>
+        <p class="text-xs text-gray-500 mb-6">to continue to <strong class="text-gray-800">REZUM Career Intelligence</strong></p>
+
+        <form id="google-modal-form" class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Your Full Name</label>
+            <input id="google-name-input" type="text" placeholder="e.g. Your Real Name" required class="w-full bg-gray-50 border border-gray-300 px-3.5 py-2.5 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-blue-600 focus:bg-white transition-colors" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Google Email / Gmail</label>
+            <input id="google-email-input" type="email" placeholder="name@gmail.com" required class="w-full bg-gray-50 border border-gray-300 px-3.5 py-2.5 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-blue-600 focus:bg-white transition-colors" />
+          </div>
+
+          <div class="pt-2">
+            <button type="submit" id="google-modal-submit-btn" class="w-full py-3 rounded-lg bg-[#1a73e8] hover:bg-[#1557b0] text-white text-sm font-semibold tracking-wider transition-colors flex items-center justify-center gap-2 shadow-sm font-sans cursor-pointer font-bold">
+              <span>${isLocalFallback ? 'CONTINUE WITH GOOGLE STYLE SIGN-IN' : 'CONTINUE WITH GOOGLE ACCOUNT'}</span>
+            </button>
+          </div>
+        </form>
+
+        <p class="text-[11px] text-gray-400 text-center mt-4">
+          ${isLocalFallback
+            ? 'This local environment is using a secure fallback flow until a valid Google OAuth client ID is configured.'
+            : 'By continuing, Google shares your verified name and email address with Rezum.'}
+        </p>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    const closeBtn = document.getElementById('close-google-modal');
+    closeBtn?.addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.remove();
+    });
+
+    const mForm = document.getElementById('google-modal-form');
+    mForm?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = document.getElementById('google-name-input')?.value.trim();
+      const email = document.getElementById('google-email-input')?.value.trim().toLowerCase();
+      if (!email || !name) return;
+
+      modal.remove();
+      handleGoogleAuth({
+        email: email,
+        name: name,
+        sub: 'google_' + Date.now(),
+        picture: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}`
+      });
     });
   }
 }
@@ -3050,18 +3124,31 @@ const DEFAULT_PATHWAYS = {
   }
 };
 
+// Pathway Aliases & Normalization
+DEFAULT_PATHWAYS['ai-engineering'] = DEFAULT_PATHWAYS['ai-ml-platform'];
+DEFAULT_PATHWAYS['cloud-devops'] = DEFAULT_PATHWAYS['cloud-devops-sre'];
+
+const PATHWAY_NORM_MAP = {
+  'distributed-systems': 'distributed-systems',
+  'ai-engineering': 'ai-engineering',
+  'ai-ml-platform': 'ai-engineering',
+  'cloud-devops': 'cloud-devops',
+  'cloud-devops-sre': 'cloud-devops'
+};
+
 function getActivePathway() {
-  const localSaved = localStorage.getItem(`rezum_pathway_${CURRENT_ROADMAP_PATHWAY_ID}`);
+  const normId = PATHWAY_NORM_MAP[CURRENT_ROADMAP_PATHWAY_ID] || 'distributed-systems';
+  const localSaved = localStorage.getItem(`rezum_pathway_${normId}`) || localStorage.getItem(`rezum_pathway_${CURRENT_ROADMAP_PATHWAY_ID}`);
   if (localSaved) {
     try { return JSON.parse(localSaved); } catch (e) {}
   }
-  return ROADMAP_CACHE[CURRENT_ROADMAP_PATHWAY_ID] || DEFAULT_PATHWAYS[CURRENT_ROADMAP_PATHWAY_ID] || DEFAULT_PATHWAYS['distributed-systems'];
+  return ROADMAP_CACHE[normId] || ROADMAP_CACHE[CURRENT_ROADMAP_PATHWAY_ID] || DEFAULT_PATHWAYS[normId] || DEFAULT_PATHWAYS['distributed-systems'];
 }
 
 function renderRoadmaps() {
   const pathway = getActivePathway();
   let allResources = [];
-  pathway.steps.forEach(st => {
+  (pathway.steps || []).forEach(st => {
     if (st.resources) allResources = allResources.concat(st.resources);
   });
 
@@ -3070,10 +3157,11 @@ function renderRoadmaps() {
   const percent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
   const remainingHours = allResources.filter(r => !r.completed).reduce((sum, r) => sum + (r.hours || 0), 0);
 
+  const currentNorm = PATHWAY_NORM_MAP[CURRENT_ROADMAP_PATHWAY_ID] || 'distributed-systems';
   const pathwaysList = [
     { id: 'distributed-systems', label: 'DISTRIBUTED SYSTEMS', repo: 'donnemartin/system-design-primer' },
-    { id: 'ai-ml-platform', label: 'AI / ML PLATFORM', repo: 'kamranahmedse/developer-roadmap' },
-    { id: 'cloud-devops-sre', label: 'CLOUD DEVOPS / SRE', repo: 'bregman-arie/devops-exercises' }
+    { id: 'ai-engineering', label: 'AI & ML INFRASTRUCTURE', repo: 'kamranahmedse/developer-roadmap' },
+    { id: 'cloud-devops', label: 'CLOUD DEVOPS & SRE', repo: 'bregman-arie/devops-exercises' }
   ];
 
   return `
@@ -3083,7 +3171,7 @@ function renderRoadmaps() {
       <div class="lg:col-span-8">
         <span class="font-label-sm text-label-sm uppercase tracking-widest text-secondary block mb-2">VERIFIED GITHUB CURRICULA</span>
         <h1 class="font-headline-xl text-headline-xl-mobile md:text-headline-xl text-primary font-bold tracking-tight">Learning Roadmaps</h1>
-        <p class="font-body-md text-on-surface-variant mt-2 max-w-2xl">${pathway.description}</p>
+        <p class="font-body-md text-on-surface-variant mt-2 max-w-2xl">${escapeHtml(pathway.description)}</p>
       </div>
       <div class="lg:col-span-4 flex lg:justify-end">
         <div class="flex items-center gap-3">
@@ -3102,7 +3190,7 @@ function renderRoadmaps() {
     <div class="flex flex-wrap items-center gap-2 mb-space-xl border-b border-outline-variant/20 pb-4">
       <span class="font-label-sm text-label-sm uppercase text-secondary mr-2">SELECT PATHWAY:</span>
       ${pathwaysList.map(p => `
-        <button class="pathway-tab-btn px-4 py-2 rounded-full font-label-md text-label-md uppercase tracking-wider transition-all cursor-pointer ${p.id === CURRENT_ROADMAP_PATHWAY_ID ? 'bg-primary text-on-primary font-bold shadow-sm' : 'border border-outline-variant/40 text-secondary hover:text-primary hover:border-primary'}" data-pathway="${p.id}">
+        <button class="pathway-tab-btn px-4 py-2 rounded-full font-label-md text-label-md uppercase tracking-wider transition-all cursor-pointer ${p.id === currentNorm ? 'bg-primary text-on-primary font-bold shadow-sm' : 'border border-outline-variant/40 text-secondary hover:text-primary hover:border-primary'}" data-pathway="${p.id}">
           ${p.label}
         </button>
       `).join('')}
@@ -3114,7 +3202,7 @@ function renderRoadmaps() {
         <!-- Target Role Card -->
         <div class="bg-surface-container-lowest border border-outline-variant/30 p-space-lg mb-gutter">
           <span class="font-label-sm text-label-sm uppercase text-secondary block mb-2">TARGET ROLE</span>
-          <h3 class="font-headline-md text-headline-md font-bold text-primary mb-4">${pathway.target_role}</h3>
+          <h3 class="font-headline-md text-headline-md font-bold text-primary mb-4">${escapeHtml(pathway.target_role)}</h3>
           
           <div class="space-y-3 mb-6">
             <div class="flex items-center justify-between">
@@ -3140,7 +3228,7 @@ function renderRoadmaps() {
               </span>
               <span class="material-symbols-outlined text-secondary group-hover:text-primary text-[16px] transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5">north_east</span>
             </div>
-            <p class="font-mono text-body-sm font-bold text-primary">${pathway.github_source}</p>
+            <p class="font-mono text-body-sm font-bold text-primary">${escapeHtml(pathway.github_source)}</p>
             <p class="font-label-sm text-secondary text-[11px] mt-0.5">Open-source industry syllabus &amp; community curated exercises</p>
           </a>
         </div>
@@ -3151,8 +3239,8 @@ function renderRoadmaps() {
           <div class="space-y-2">
             ${(pathway.skill_gaps || []).map((gap, i) => `
               <div class="flex items-center justify-between p-2.5 ${i < 2 ? 'bg-surface-container-low border-l-2 border-primary' : ''}">
-                <span class="font-body-sm text-body-sm ${i < 2 ? 'font-semibold text-primary' : 'text-on-surface-variant'}">${gap.skill}</span>
-                <span class="font-label-sm text-label-sm text-secondary uppercase tracking-wider">${gap.level}</span>
+                <span class="font-body-sm text-body-sm ${i < 2 ? 'font-semibold text-primary' : 'text-on-surface-variant'}">${escapeHtml(gap.skill)}</span>
+                <span class="font-label-sm text-label-sm text-secondary uppercase tracking-wider">${escapeHtml(gap.level)}</span>
               </div>
             `).join('')}
           </div>
@@ -3163,12 +3251,12 @@ function renderRoadmaps() {
       <div class="lg:col-span-8 reveal-right">
         <div class="bg-surface-container-lowest border border-outline-variant/30 p-space-lg md:p-space-xl">
           <div class="flex items-center justify-between border-b border-outline-variant/20 pb-4 mb-8">
-            <span class="font-label-md text-label-md uppercase font-semibold text-primary">${pathway.title}</span>
-            <span class="font-label-sm text-label-sm uppercase tracking-widest text-secondary">MILESTONES 01 — 0${pathway.steps.length}</span>
+            <span class="font-label-md text-label-md uppercase font-semibold text-primary">${escapeHtml(pathway.title)}</span>
+            <span class="font-label-sm text-label-sm uppercase tracking-widest text-secondary">MILESTONES 01 — 0${(pathway.steps || []).length}</span>
           </div>
 
           <div class="space-y-10 relative before:absolute before:left-3 before:top-2 before:bottom-2 before:w-px before:bg-outline-variant/40">
-            ${pathway.steps.map(step => {
+            ${(pathway.steps || []).map(step => {
               const res = step.resources || [];
               const allDone = res.length > 0 && res.every(r => r.completed);
               const someDone = res.some(r => r.completed);
@@ -3182,7 +3270,7 @@ function renderRoadmaps() {
               <div class="relative pl-10 reveal">
                 <span class="absolute left-1.5 top-1.5 w-3 h-3 rounded-full ${statusClass} border-2 border-surface-container-lowest"></span>
                 <div class="flex flex-col sm:flex-row sm:items-baseline justify-between mb-2 gap-2">
-                  <h4 class="font-headline-sm text-headline-sm font-bold text-primary">${step.num} // ${step.title}</h4>
+                  <h4 class="font-headline-sm text-headline-sm font-bold text-primary">${step.num} // ${escapeHtml(step.title)}</h4>
                   <span class="font-label-sm text-label-sm uppercase text-secondary whitespace-nowrap">${step.duration}</span>
                 </div>
                 <div class="space-y-3 mt-4">
@@ -3190,7 +3278,7 @@ function renderRoadmaps() {
                     <div class="p-3 bg-surface-container-low hover:bg-surface-container transition-all group border border-transparent hover:border-outline-variant/40">
                       <div class="flex items-start justify-between gap-3">
                         <div class="flex items-start gap-3 flex-1 min-w-0">
-                          <button class="roadmap-check-btn mt-0.5 w-5 h-5 rounded-full border ${r.completed ? 'bg-primary border-primary' : 'border-outline-variant hover:border-primary'} flex items-center justify-center transition-all cursor-pointer flex-shrink-0 focus:outline-none" data-id="${r.id}" data-pathway="${pathway.id}" title="${r.completed ? 'Mark incomplete' : 'Mark completed'}">
+                          <button class="roadmap-check-btn mt-0.5 w-5 h-5 rounded-full border ${r.completed ? 'bg-primary border-primary' : 'border-outline-variant hover:border-primary'} flex items-center justify-center transition-all cursor-pointer flex-shrink-0 focus:outline-none" data-id="${r.id}" data-pathway="${currentNorm}" title="${r.completed ? 'Mark incomplete' : 'Mark completed'}">
                             ${r.completed ? '<span class="material-symbols-outlined text-on-primary text-[12px]">check</span>' : ''}
                           </button>
                           <div class="flex-1 min-w-0">
@@ -3198,12 +3286,12 @@ function renderRoadmaps() {
                               <span class="px-2 py-0.5 rounded-full bg-surface-container font-label-sm text-label-sm text-secondary font-mono">${r.type}</span>
                               ${r.repo_name ? `
                                 <a href="https://github.com/${r.repo_name}" target="_blank" rel="noopener noreferrer" class="font-label-sm text-[11px] text-secondary hover:text-primary flex items-center gap-1 font-mono hover:underline">
-                                  <span class="material-symbols-outlined text-[13px]">code</span> ${r.repo_name}
+                                  <span class="material-symbols-outlined text-[13px]">code</span> ${escapeHtml(r.repo_name)}
                                 </a>
                               ` : ''}
                             </div>
-                            <h5 class="font-body-md text-body-md ${r.completed ? 'line-through text-secondary' : 'font-semibold text-primary'} leading-snug">${r.title}</h5>
-                            <p class="font-body-sm text-body-sm text-on-surface-variant mt-1 line-clamp-2">${r.description || ''}</p>
+                            <h5 class="font-body-md text-body-md ${r.completed ? 'line-through text-secondary' : 'font-semibold text-primary'} leading-snug">${escapeHtml(r.title)}</h5>
+                            <p class="font-body-sm text-body-sm text-on-surface-variant mt-1 line-clamp-2">${escapeHtml(r.description || '')}</p>
                           </div>
                         </div>
 
@@ -3230,13 +3318,15 @@ function renderRoadmaps() {
 
 async function syncPathwayFromServer(pathwayId) {
   try {
-    const res = await fetch(`/api/roadmaps/${pathwayId}`, {
+    const normId = PATHWAY_NORM_MAP[pathwayId] || pathwayId;
+    const res = await fetch(`/api/roadmaps/${normId}`, {
       headers: AuthManager.getAuthHeader()
     });
     if (res.ok) {
       const data = await res.json();
+      ROADMAP_CACHE[normId] = data;
       ROADMAP_CACHE[pathwayId] = data;
-      localStorage.setItem(`rezum_pathway_${pathwayId}`, JSON.stringify(data));
+      localStorage.setItem(`rezum_pathway_${normId}`, JSON.stringify(data));
       return data;
     }
   } catch (err) {
@@ -3245,35 +3335,20 @@ async function syncPathwayFromServer(pathwayId) {
   return null;
 }
 
-function initRoadmaps() {
-  // Sync latest from server asynchronously
-  syncPathwayFromServer(CURRENT_ROADMAP_PATHWAY_ID).then(data => {
-    if (data) {
-      const ratioEl = document.getElementById('roadmap-ratio');
-      if (ratioEl) {
-        // Rerender to ensure latest server progress marks appear
-        const container = document.getElementById('app-content');
-        if (container) {
-          container.innerHTML = renderRoadmaps();
-          initRoadmaps();
-          initScrollReveal();
-        }
-      }
-    }
-  });
-
+function bindRoadmapListeners() {
   // Pathway Switcher Tabs
   document.querySelectorAll('.pathway-tab-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const newPathwayId = btn.getAttribute('data-pathway');
-      if (newPathwayId && newPathwayId !== CURRENT_ROADMAP_PATHWAY_ID) {
-        CURRENT_ROADMAP_PATHWAY_ID = newPathwayId;
-        localStorage.setItem('rezum_active_pathway', newPathwayId);
-        await syncPathwayFromServer(newPathwayId);
+      const normId = PATHWAY_NORM_MAP[newPathwayId] || newPathwayId;
+      if (normId && normId !== CURRENT_ROADMAP_PATHWAY_ID) {
+        CURRENT_ROADMAP_PATHWAY_ID = normId;
+        localStorage.setItem('rezum_active_pathway', normId);
+        await syncPathwayFromServer(normId);
         const container = document.getElementById('app-content');
         if (container) {
           container.innerHTML = renderRoadmaps();
-          initRoadmaps();
+          bindRoadmapListeners();
           initScrollReveal();
         }
       }
@@ -3282,7 +3357,7 @@ function initRoadmaps() {
 
   // Checkbox buttons
   document.querySelectorAll('.roadmap-check-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', () => {
       const id = btn.getAttribute('data-id');
       const pathwayId = btn.getAttribute('data-pathway') || CURRENT_ROADMAP_PATHWAY_ID;
       const pathway = getActivePathway();
@@ -3300,8 +3375,9 @@ function initRoadmaps() {
 
       if (targetResource) {
         targetResource.completed = !targetResource.completed;
-        ROADMAP_CACHE[pathwayId] = pathway;
-        localStorage.setItem(`rezum_pathway_${pathwayId}`, JSON.stringify(pathway));
+        const normId = PATHWAY_NORM_MAP[pathwayId] || pathwayId;
+        ROADMAP_CACHE[normId] = pathway;
+        localStorage.setItem(`rezum_pathway_${normId}`, JSON.stringify(pathway));
 
         showToast(
           targetResource.completed ? 'Resource Completed' : 'Resource Reset',
@@ -3309,7 +3385,15 @@ function initRoadmaps() {
           targetResource.completed ? 'check_circle' : 'pending'
         );
 
-        // Send to backend API
+        // Update view directly
+        const container = document.getElementById('app-content');
+        if (container) {
+          container.innerHTML = renderRoadmaps();
+          bindRoadmapListeners();
+          initScrollReveal();
+        }
+
+        // Send to backend API asynchronously without blocking UI
         try {
           fetch('/api/roadmaps/progress', {
             method: 'POST',
@@ -3318,21 +3402,31 @@ function initRoadmaps() {
               ...AuthManager.getAuthHeader()
             },
             body: JSON.stringify({
-              pathway_id: pathwayId,
+              pathway_id: normId,
               resource_id: id,
               completed: targetResource.completed
             })
           }).catch(e => console.warn('Progress sync warning:', e));
         } catch (e) {}
-
-        const container = document.getElementById('app-content');
-        if (container) {
-          container.innerHTML = renderRoadmaps();
-          initRoadmaps();
-          initScrollReveal();
-        }
       }
     });
+  });
+}
+
+function initRoadmaps() {
+  bindRoadmapListeners();
+
+  // Background fetch latest from server once (without infinite re-render loop)
+  const normId = PATHWAY_NORM_MAP[CURRENT_ROADMAP_PATHWAY_ID] || CURRENT_ROADMAP_PATHWAY_ID;
+  syncPathwayFromServer(normId).then(data => {
+    if (data) {
+      const container = document.getElementById('app-content');
+      if (container && location.hash.startsWith('#/roadmaps')) {
+        container.innerHTML = renderRoadmaps();
+        bindRoadmapListeners();
+        initScrollReveal();
+      }
+    }
   });
 }
 
@@ -3347,8 +3441,8 @@ function renderSettings() {
 
   const nameVal = currentUser ? (currentUser.name || '') : (guestProfile.name || '');
   const emailVal = currentUser ? (currentUser.email || '') : (guestProfile.email || '');
-  const phoneVal = currentUser ? (currentUser.phone || '') : (guestProfile.phone || '+1 (512) 555-0142');
-  const locationVal = currentUser ? (currentUser.location || '') : (guestProfile.location || 'Austin, TX / Remote US');
+  const phoneVal = currentUser ? (currentUser.phone || '') : (guestProfile.phone || '');
+  const locationVal = currentUser ? (currentUser.location || '') : (guestProfile.location || '');
 
   return `
   <div class="max-w-[1720px] mx-auto px-margin-sm lg:px-margin py-space-xl">
@@ -3383,7 +3477,7 @@ function renderSettings() {
             ${isLoggedIn ? `
               <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container-low border border-primary/30">
                 <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span class="font-label-sm text-label-sm font-mono text-primary uppercase">ACTIVE SESSION (${currentUser.auth_provider})</span>
+                <span class="font-label-sm text-label-sm font-mono text-primary uppercase">ACTIVE SESSION (${currentUser.provider || 'LOCAL'})</span>
               </div>
             ` : `
               <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container-low border border-outline-variant/50">
@@ -3396,19 +3490,19 @@ function renderSettings() {
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label class="block font-label-sm text-label-sm uppercase tracking-wider text-secondary mb-1">FULL NAME</label>
-              <input class="w-full bg-surface-container-low border border-outline-variant/40 px-4 py-2.5 text-body-sm focus:outline-none focus:border-primary font-medium text-primary" id="setting-name" value="${escapeHtml(nameVal)}" placeholder="e.g. Elena Rostova" />
+              <input class="w-full bg-surface-container-low border border-outline-variant/40 px-4 py-2.5 text-body-sm focus:outline-none focus:border-primary font-medium text-primary" id="setting-name" value="${escapeHtml(nameVal)}" placeholder="Your Full Name" />
             </div>
             <div>
               <label class="block font-label-sm text-label-sm uppercase tracking-wider text-secondary mb-1">EMAIL</label>
-              <input class="w-full bg-surface-container-low border border-outline-variant/40 px-4 py-2.5 text-body-sm focus:outline-none focus:border-primary font-medium text-primary" id="setting-email" value="${escapeHtml(emailVal)}" placeholder="e.g. elena@domain.com" ${isLoggedIn ? 'readonly title="Email is verified with your account"' : ''} />
+              <input class="w-full bg-surface-container-low border border-outline-variant/40 px-4 py-2.5 text-body-sm focus:outline-none focus:border-primary font-medium text-primary" id="setting-email" value="${escapeHtml(emailVal)}" placeholder="yourname@domain.com" ${isLoggedIn ? 'readonly title="Email is verified with your account"' : ''} />
             </div>
             <div>
               <label class="block font-label-sm text-label-sm uppercase tracking-wider text-secondary mb-1">PHONE</label>
-              <input class="w-full bg-surface-container-low border border-outline-variant/40 px-4 py-2.5 text-body-sm focus:outline-none focus:border-primary font-medium text-primary" id="setting-phone" value="${escapeHtml(phoneVal)}" placeholder="e.g. +1 (512) 555-0142" />
+              <input class="w-full bg-surface-container-low border border-outline-variant/40 px-4 py-2.5 text-body-sm focus:outline-none focus:border-primary font-medium text-primary" id="setting-phone" value="${escapeHtml(phoneVal)}" placeholder="+1 (555) 000-0000" />
             </div>
             <div>
               <label class="block font-label-sm text-label-sm uppercase tracking-wider text-secondary mb-1">LOCATION</label>
-              <input class="w-full bg-surface-container-low border border-outline-variant/40 px-4 py-2.5 text-body-sm focus:outline-none focus:border-primary font-medium text-primary" id="setting-location" value="${escapeHtml(locationVal)}" placeholder="e.g. Austin, TX / Remote US" />
+              <input class="w-full bg-surface-container-low border border-outline-variant/40 px-4 py-2.5 text-body-sm focus:outline-none focus:border-primary font-medium text-primary" id="setting-location" value="${escapeHtml(locationVal)}" placeholder="City, State / Remote" />
             </div>
           </div>
           <div class="mt-6 flex items-center gap-4">
@@ -3620,6 +3714,12 @@ document.addEventListener('DOMContentLoaded', () => {
   ];
 
   const router = new Router(routes, container);
+
+  // Initialize Header with real authenticated user session
+  AuthManager.updateHeaderUserUI();
+  window.addEventListener('hashchange', () => {
+    AuthManager.updateHeaderUserUI();
+  });
 
   // Search button & keyboard shortcut
   document.getElementById('search-btn')?.addEventListener('click', openCommandPalette);

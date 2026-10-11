@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -76,6 +77,18 @@ def home() -> FileResponse:
 @app.get("/health", tags=["system"])
 def health() -> dict[str, str]:
     return {"status": "ok", "system": "REZUM Career Intelligence v2"}
+
+
+@app.get("/api/config", tags=["system"])
+def app_config() -> dict[str, object]:
+    client_id = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+    return {
+        "app_name": "REZUM",
+        "google_client_id": client_id,
+        "google_enabled": bool(client_id),
+        "jobs_enabled": True,
+        "roadmaps_enabled": True,
+    }
 
 
 # ================================================================
