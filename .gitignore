@@ -1,2 +1,14 @@
-.env 
-venv  
+.env
+.env.*
+!.env.example
+
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+
+rezum.db
+uploads/
+
+.DS_Store
+Thumbs.db
